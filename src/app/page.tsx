@@ -54,10 +54,10 @@ export default function Home() {
               GitHub
             </a>
             <Link
-              href="/visualize"
+              href="/debug"
               className="coursor-pointer rounded-4xl border-2 border-white hover:bg-gray-100 hover:text-black transition-all duration-300 px-4 py-2 font-semibold m-2"
             >
-              Visualize
+              Debug
             </Link>
           </div>
         </div>
