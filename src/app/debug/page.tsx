@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
-import { animate } from "framer-motion";
+import { useState, useEffect } from "react";
+import * as d3 from "d3";
+import { animate } from "motion";
 
 const Page = () => {
   type TrieNode =
@@ -11,8 +12,245 @@ const Page = () => {
       };
 
   const [dictionary, setDictionary] = useState<TrieNode>({});
-  const [curr, setCurr] = useState<TrieNode>({});
-  const [pathStack, setPathStack] = useState<string[]>([]);
+  const convertToHierarchy = (obj: TrieNode, name = "root"): any => {
+    if (typeof obj === "string" || typeof obj === "number") {
+      return { name, value: obj, children: [] };
+    }
+
+    const children: any[] = [];
+    if (typeof obj === "object" && obj !== null) {
+      Object.entries(obj).forEach(([key, value]) => {
+        if (key === "end" && typeof value === "number") {
+          children.push({ name: `end: ${value}`, value: value, children: [] });
+        } else {
+          children.push(convertToHierarchy(value, key));
+        }
+      });
+    }
+
+    return { name, children };
+  };
+
+  useEffect(() => {
+    if (JSON.stringify(dictionary) === "{}") return;
+
+    const hierarchyData = convertToHierarchy(dictionary);
+    const root = d3.hierarchy(hierarchyData);
+
+    const nodeWidth = 140;
+    const nodeHeight = 100;
+
+    const maxDepth = Math.max(...root.descendants().map((d) => d.depth));
+    const leafCount = root.leaves().length;
+
+    const width = Math.max(leafCount * nodeWidth, 800);
+    const height = Math.max((maxDepth + 1) * nodeHeight, 600);
+
+    const margin = { top: 20, right: 40, bottom: 20, left: 40 };
+
+    d3.select("#tree-container").selectAll("*").remove();
+
+    const container = d3
+      .select("#tree-container")
+      .append("div")
+      .attr("class", "svg-wrapper")
+      .style("width", "100vw")
+      .style("height", "100vh")
+      .style("overflow", "auto");
+
+    const svg = container
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom);
+
+    const g = svg
+      .append("g")
+      .attr("transform", `translate(${margin.left + 30}, ${margin.top})`);
+
+    svg.append("defs").append("style").text(`
+      .node circle {
+        fill: #000;
+        stroke: #fff;
+        stroke-width: 1px;
+        cursor: pointer;
+      }
+      .node circle.has-children {
+        fill: #fff;
+      }
+      .node text {
+        font: 20px sans-serif;
+        cursor: pointer;
+        fill: #fff;
+      }
+      .link {
+        fill: #fff;
+        stroke: #ccc;
+        stroke-width: 2px;
+      }
+      .tooltip {
+        position: absolute;
+        text-align: center;
+        padding: 8px;
+        font: 12px sans-serif;
+        background: rgba(0, 0, 0, 0.8);
+        border-radius: 8px;
+        pointer-events: none;
+        opacity: 0;
+      }
+    `);
+
+    const tooltip = d3
+      .select("body")
+      .selectAll(".trie-tooltip")
+      .data([0])
+      .enter()
+      .append("div")
+      .attr("class", "tooltip trie-tooltip");
+
+    const tree = d3.tree().size([height, width]);
+    root.x0 = height / 2;
+    root.y0 = 0;
+    root.children?.forEach(collapse);
+
+    function collapse(d: any) {
+      if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+      }
+    }
+
+    let i = 0;
+    function update(source: any) {
+      const treeRoot = tree(root);
+      const nodes = treeRoot.descendants();
+      const links = treeRoot.descendants().slice(1);
+      nodes.forEach((d) => (d.y = d.depth * 180));
+
+      const node = g
+        .selectAll(".node")
+        .data(nodes, (d: any) => d.id || (d.id = ++i));
+
+      const nodeEnter = node
+        .enter()
+        .append("g")
+        .attr("class", "node")
+        .attr("transform", () => `translate(${source.y0},${source.x0})`)
+        .on("click", click)
+        .on("mouseover", (event: any, d: any) => {
+          tooltip.transition().duration(200).style("opacity", 0.9);
+          tooltip
+            .html(
+              `<strong>${d.data.name}</strong><br/>Click to ${
+                d.children ? "collapse" : "expand"
+              }`
+            )
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 28}px`);
+        })
+        .on("mouseout", () =>
+          tooltip.transition().duration(500).style("opacity", 0)
+        );
+
+      nodeEnter
+        .append("circle")
+        .attr("r", 1e-6)
+        .attr("class", (d: any) => (d._children ? "has-children" : ""));
+
+      nodeEnter
+        .append("text")
+        .attr("dy", ".8em")
+        .attr("x", (d: any) => (d.children || d._children ? -13 : 13))
+        .attr("text-anchor", (d: any) =>
+          d.children || d._children ? "end" : "start"
+        )
+        .text((d: any) => d.data.name)
+        .style("fill-opacity", 1e-6);
+
+      const nodeUpdate = nodeEnter.merge(node);
+      nodeUpdate
+        .transition()
+        .duration(750)
+        .attr("transform", (d: any) => `translate(${d.y},${d.x})`);
+
+      nodeUpdate
+        .select("circle")
+        .transition()
+        .duration(750)
+        .attr("r", 8)
+        .attr("class", (d: any) => (d._children ? "has-children" : ""));
+
+      nodeUpdate
+        .select("text")
+        .transition()
+        .duration(750)
+        .style("fill-opacity", 1)
+        .attr("x", (d: any) => (d.children || d._children ? -15 : 15))
+        .attr("text-anchor", (d: any) =>
+          d.children || d._children ? "end" : "start"
+        );
+
+      const nodeExit = node
+        .exit()
+        .transition()
+        .duration(750)
+        .attr("transform", () => `translate(${source.y},${source.x})`)
+        .remove();
+
+      nodeExit.select("circle").attr("r", 1e-6);
+      nodeExit.select("text").style("fill-opacity", 1e-6);
+
+      const link = g.selectAll("path.link").data(links, (d: any) => d.id);
+
+      const linkEnter = link
+        .enter()
+        .insert("path", "g")
+        .attr("class", "link")
+        .attr("d", () =>
+          diagonal(
+            { x: source.x0, y: source.y0 },
+            { x: source.x0, y: source.y0 }
+          )
+        );
+
+      linkEnter
+        .merge(link)
+        .transition()
+        .duration(750)
+        .attr("d", (d: any) => diagonal(d, d.parent));
+
+      link
+        .exit()
+        .transition()
+        .duration(750)
+        .attr("d", () =>
+          diagonal({ x: source.x, y: source.y }, { x: source.x, y: source.y })
+        )
+        .remove();
+
+      nodes.forEach((d: any) => {
+        d.x0 = d.x;
+        d.y0 = d.y;
+      });
+    }
+
+    function diagonal(s: any, d: any) {
+      return `M ${s.y} ${s.x} L ${d.y} ${d.x}`;
+    }
+
+    function click(event: any, d: any) {
+      if (d.children) {
+        d._children = d.children;
+        d.children = null;
+      } else {
+        d.children = d._children;
+        d._children = null;
+      }
+      update(d);
+    }
+
+    update(root);
+  }, [dictionary]);
 
   return (
     <div>
@@ -31,8 +269,6 @@ const Page = () => {
             const fixed = input.replaceAll("'", '"');
             const parsed = JSON.parse(fixed);
             setDictionary(parsed);
-            setCurr(parsed);
-            setPathStack([]);
           } catch (error) {
             console.error("Invalid JSON format:", error);
           }
@@ -44,12 +280,10 @@ const Page = () => {
             name="dictionary"
             className="border-2 rounded-4xl my-5 m-2 p-2 bg-black text-white placeholder-gray-400"
             placeholder='{"a":{"end":1}, "b":{"end":1}}'
-            onFocus={() => {
-              animate(".input", { y: "50svh" }, { duration: 0.2 });
-            }}
-            onBlur={() => {
-              animate(".input", { y: 0 }, { delay: 0.3, duration: 0.2 });
-            }}
+            onFocus={() => animate(".input", { y: "50svh" }, { duration: 0.2 })}
+            onBlur={() =>
+              animate(".input", { y: 0 }, { delay: 0.3, duration: 0.2 })
+            }
             required
             autoComplete="off"
             spellCheck="false"
@@ -64,86 +298,7 @@ const Page = () => {
       </form>
 
       <br />
-      <br />
-      <br />
-
-      <div className="grid place-items-center w-full">
-        {JSON.stringify(curr) !== "{}" && curr !== "" && (
-          <span className="py-4">
-            {typeof curr === "object" &&
-              Object.entries(curr).map(([element, value]) => (
-                <span
-                  key={element}
-                  className="border-2 p-1 py-4 m-1 inline-block"
-                >
-                  <strong className="inline-block mr-1">{element}</strong>
-                  <div className="inline-flex items-center gap-2">
-                    {typeof value === "object" ? (
-                      <span
-                        className="cursor-pointer inline-flex w-5 h-5 border-2 rounded-full items-center justify-center"
-                        onClick={() => {
-                          setCurr(value);
-                          setPathStack((prev) => [...prev, element]);
-                        }}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 -960 960 960"
-                          className="w-4 h-4"
-                          fill="#e3e3e3"
-                        >
-                          <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
-                        </svg>
-                      </span>
-                    ) : (
-                      <span className="text-white px-2">
-                        = {value.toString()}
-                      </span>
-                    )}
-                  </div>
-                </span>
-              ))}
-            {(typeof curr === "number" || typeof curr === "string") && (
-              <span className="border-2 p-1 py-4">
-                <strong className="inline-block">{curr}</strong>
-              </span>
-            )}
-          </span>
-        )}
-      </div>
-
-      <br />
-      <br />
-
-      {JSON.stringify(curr) !== JSON.stringify(dictionary) && (
-        <div className="flex flex-row items-center justify-center">
-          <p
-            className="cursor-pointer inline-flex w-5 h-5 border-2 rounded-full items-center justify-center"
-            onClick={() => {
-              const newPathStack = [...pathStack];
-              newPathStack.pop();
-
-              let newCurr: TrieNode = dictionary;
-              for (const key of newPathStack) {
-                if (
-                  typeof newCurr !== "object" ||
-                  newCurr === null ||
-                  !(key in newCurr)
-                ) {
-                  console.error("Invalid path");
-                  return;
-                }
-                newCurr = newCurr[key]!;
-              }
-
-              setCurr(newCurr);
-              setPathStack(newPathStack);
-            }}
-          >
-            -
-          </p>
-        </div>
-      )}
+      <div id="tree-container"></div>
     </div>
   );
 };
