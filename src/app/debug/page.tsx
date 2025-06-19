@@ -20,8 +20,12 @@ const Page = () => {
     const children: any[] = [];
     if (typeof obj === "object" && obj !== null) {
       Object.entries(obj).forEach(([key, value]) => {
-        if (key === "end" && typeof value === "number") {
-          children.push({ name: `end: ${value}`, value: value, children: [] });
+        if (typeof value === "number") {
+          children.push({
+            name: `${key}: ${value}`,
+            value: value,
+            children: [],
+          });
         } else {
           children.push(convertToHierarchy(value, key));
         }
@@ -56,7 +60,7 @@ const Page = () => {
       .attr("class", "svg-wrapper")
       .style("width", "100vw")
       .style("height", "100vh")
-      .style("overflow", "auto");
+      .style("overflow", "hidden");
 
     const svg = container
       .append("svg")
@@ -73,19 +77,27 @@ const Page = () => {
         stroke: #fff;
         stroke-width: 1px;
         cursor: pointer;
+        z-index: -1;
+        position: relative;
       }
       .node circle.has-children {
         fill: #fff;
+        z-index: -1;
+        position: relative;
       }
       .node text {
         font: 20px sans-serif;
         cursor: pointer;
         fill: #fff;
+        z-index: -1;
+        position: relative;
       }
       .link {
         fill: #fff;
         stroke: #ccc;
         stroke-width: 2px;
+        z-index: -1;
+        position: relative;
       }
       .tooltip {
         position: absolute;
@@ -96,6 +108,16 @@ const Page = () => {
         border-radius: 8px;
         pointer-events: none;
         opacity: 0;
+        z-index: -1;
+        position: relative;
+      }
+
+      .svg-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        position: relative;
       }
     `);
 
@@ -110,15 +132,15 @@ const Page = () => {
     const tree = d3.tree().size([height, width]);
     root.x0 = height / 2;
     root.y0 = 0;
-    root.children?.forEach(collapse);
+    // root.children?.forEach(collapse);
 
-    function collapse(d: any) {
-      if (d.children) {
-        d._children = d.children;
-        d._children.forEach(collapse);
-        d.children = null;
-      }
-    }
+    // function collapse(d: any) {
+    //   if (d.children) {
+    //     d._children = d.children;
+    //     d._children.forEach(collapse);
+    //     d.children = null;
+    //   }
+    // }
 
     let i = 0;
     function update(source: any) {
