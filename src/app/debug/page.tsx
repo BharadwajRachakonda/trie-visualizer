@@ -9,34 +9,31 @@ const Page = () => {
   }
 
   const [dictionary, setDictionary] = useState<TrieNode>({});
-  const convertToHierarchy = (
-    obj: Record<string, TrieNode | number | undefined>,
-    name = "root"
-  ): any => {
-    if (typeof obj === "string" || typeof obj === "number") {
+
+  const convertToHierarchy = (obj: TrieNode | number, name = "root"): any => {
+    if (typeof obj === "number") {
       return { name, value: obj, children: [] };
     }
 
     const children: any[] = [];
-    if (typeof obj === "object" && obj !== null) {
-      Object.entries(obj).forEach(([key, value]) => {
-        if (typeof value === "number") {
-          children.push({
-            name: `${key}: ${value}`,
-            value: value,
-            children: [],
-          });
-        } else {
-          children.push(convertToHierarchy(value, key));
-        }
-      });
-    }
+
+    Object.entries(obj).forEach(([key, value]) => {
+      if (typeof value === "number") {
+        children.push({
+          name: `${key}: ${value}`,
+          value: value,
+          children: [],
+        });
+      } else {
+        children.push(convertToHierarchy(value, key));
+      }
+    });
 
     return { name, children };
   };
 
   useEffect(() => {
-    if (JSON.stringify(dictionary) === "{}") return;
+    if (Object.keys(dictionary).length === 0) return;
 
     const hierarchyData = convertToHierarchy(dictionary);
     const root = d3.hierarchy(hierarchyData);
@@ -111,7 +108,6 @@ const Page = () => {
         z-index: -1;
         position: relative;
       }
-
       .svg-wrapper {
         position: relative;
         width: 100%;
@@ -132,15 +128,6 @@ const Page = () => {
     const tree = d3.tree().size([height, width]);
     root.x0 = height / 2;
     root.y0 = 0;
-    // root.children?.forEach(collapse);
-
-    // function collapse(d: any) {
-    //   if (d.children) {
-    //     d._children = d.children;
-    //     d._children.forEach(collapse);
-    //     d.children = null;
-    //   }
-    // }
 
     let i = 0;
     function update(source: any) {
@@ -318,7 +305,6 @@ const Page = () => {
           </button>
         </div>
       </form>
-
       <br />
       <div id="tree-container"></div>
     </div>
