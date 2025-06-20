@@ -4,15 +4,15 @@ import * as d3 from "d3";
 import { animate } from "motion";
 
 const Page = () => {
-  type TrieNode =
-    | string
-    | number
-    | {
-        [key: string]: TrieNode | number | undefined;
-      };
+  interface TrieNode {
+    [key: string]: TrieNode | number;
+  }
 
   const [dictionary, setDictionary] = useState<TrieNode>({});
-  const convertToHierarchy = (obj: TrieNode, name = "root"): any => {
+  const convertToHierarchy = (
+    obj: Record<string, TrieNode | number | undefined>,
+    name = "root"
+  ): any => {
     if (typeof obj === "string" || typeof obj === "number") {
       return { name, value: obj, children: [] };
     }
