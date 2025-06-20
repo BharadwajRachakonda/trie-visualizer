@@ -3,11 +3,17 @@ import { useState, useEffect } from "react";
 import * as d3 from "d3";
 import { animate } from "motion";
 
-const Page = () => {
-  interface TrieNode {
-    [key: string]: TrieNode | number;
-  }
+interface TrieNode {
+  [key: string]: TrieNode | number;
+}
 
+interface ExtendedHierarchyNode extends d3.HierarchyNode<any> {
+  x0?: number;
+  y0?: number;
+  _children?: ExtendedHierarchyNode[];
+}
+
+const Page = () => {
   const [dictionary, setDictionary] = useState<TrieNode>({});
 
   const convertToHierarchy = (obj: TrieNode | number, name = "root"): any => {
@@ -21,7 +27,7 @@ const Page = () => {
       if (typeof value === "number") {
         children.push({
           name: `${key}: ${value}`,
-          value: value,
+          value,
           children: [],
         });
       } else {
@@ -36,7 +42,7 @@ const Page = () => {
     if (Object.keys(dictionary).length === 0) return;
 
     const hierarchyData = convertToHierarchy(dictionary);
-    const root = d3.hierarchy(hierarchyData);
+    const root = d3.hierarchy(hierarchyData) as ExtendedHierarchyNode;
 
     const nodeWidth = 140;
     const nodeHeight = 100;
@@ -125,19 +131,21 @@ const Page = () => {
       .append("div")
       .attr("class", "tooltip trie-tooltip");
 
-    const tree = d3.tree().size([height, width]);
+    const tree = d3.tree<ExtendedHierarchyNode>().size([height, width]);
+
     root.x0 = height / 2;
     root.y0 = 0;
 
     let i = 0;
-    function update(source: any) {
+
+    function update(source: ExtendedHierarchyNode) {
       const treeRoot = tree(root);
-      const nodes = treeRoot.descendants();
-      const links = treeRoot.descendants().slice(1);
+      const nodes = treeRoot.descendants() as ExtendedHierarchyNode[];
+      const links = nodes.slice(1);
       nodes.forEach((d) => (d.y = d.depth * 180));
 
       const node = g
-        .selectAll(".node")
+        .selectAll<SVGGElement, ExtendedHierarchyNode>(".node")
         .data(nodes, (d: any) => d.id || (d.id = ++i));
 
       const nodeEnter = node
@@ -146,7 +154,7 @@ const Page = () => {
         .attr("class", "node")
         .attr("transform", () => `translate(${source.y0},${source.x0})`)
         .on("click", click)
-        .on("mouseover", (event: any, d: any) => {
+        .on("mouseover", (event: any, d) => {
           tooltip.transition().duration(200).style("opacity", 0.9);
           tooltip
             .html(
@@ -164,38 +172,38 @@ const Page = () => {
       nodeEnter
         .append("circle")
         .attr("r", 1e-6)
-        .attr("class", (d: any) => (d._children ? "has-children" : ""));
+        .attr("class", (d) => (d._children ? "has-children" : ""));
 
       nodeEnter
         .append("text")
         .attr("dy", ".8em")
-        .attr("x", (d: any) => (d.children || d._children ? -13 : 13))
-        .attr("text-anchor", (d: any) =>
+        .attr("x", (d) => (d.children || d._children ? -13 : 13))
+        .attr("text-anchor", (d) =>
           d.children || d._children ? "end" : "start"
         )
-        .text((d: any) => d.data.name)
+        .text((d) => d.data.name)
         .style("fill-opacity", 1e-6);
 
-      const nodeUpdate = nodeEnter.merge(node);
+      const nodeUpdate = nodeEnter.merge(node as any);
       nodeUpdate
         .transition()
         .duration(750)
-        .attr("transform", (d: any) => `translate(${d.y},${d.x})`);
+        .attr("transform", (d) => `translate(${d.y},${d.x})`);
 
       nodeUpdate
         .select("circle")
         .transition()
         .duration(750)
         .attr("r", 8)
-        .attr("class", (d: any) => (d._children ? "has-children" : ""));
+        .attr("class", (d) => (d._children ? "has-children" : ""));
 
       nodeUpdate
         .select("text")
         .transition()
         .duration(750)
         .style("fill-opacity", 1)
-        .attr("x", (d: any) => (d.children || d._children ? -15 : 15))
-        .attr("text-anchor", (d: any) =>
+        .attr("x", (d) => (d.children || d._children ? -15 : 15))
+        .attr("text-anchor", (d) =>
           d.children || d._children ? "end" : "start"
         );
 
@@ -217,43 +225,49 @@ const Page = () => {
         .attr("class", "link")
         .attr("d", () =>
           diagonal(
-            { x: source.x0, y: source.y0 },
-            { x: source.x0, y: source.y0 }
+            { x: source.x0!, y: source.y0! },
+            { x: source.x0!, y: source.y0! }
           )
         );
 
       linkEnter
-        .merge(link)
+        .merge(link as any)
         .transition()
         .duration(750)
-        .attr("d", (d: any) => diagonal(d, d.parent));
+        .attr("d", (d) => diagonal(d, d.parent!));
 
       link
         .exit()
         .transition()
         .duration(750)
         .attr("d", () =>
-          diagonal({ x: source.x, y: source.y }, { x: source.x, y: source.y })
+          diagonal(
+            { x: source.x!, y: source.y! },
+            { x: source.x!, y: source.y! }
+          )
         )
         .remove();
 
-      nodes.forEach((d: any) => {
+      nodes.forEach((d) => {
         d.x0 = d.x;
         d.y0 = d.y;
       });
     }
 
-    function diagonal(s: any, d: any) {
+    function diagonal(
+      s: { x: number; y: number },
+      d: { x: number; y: number }
+    ) {
       return `M ${s.y} ${s.x} L ${d.y} ${d.x}`;
     }
 
-    function click(event: any, d: any) {
+    function click(event: any, d: ExtendedHierarchyNode) {
       if (d.children) {
         d._children = d.children;
         d.children = null;
       } else {
         d.children = d._children;
-        d._children = null;
+        d._children = undefined;
       }
       update(d);
     }
