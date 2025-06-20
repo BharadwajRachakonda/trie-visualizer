@@ -80,27 +80,19 @@ const Page = () => {
         stroke: #fff;
         stroke-width: 1px;
         cursor: pointer;
-        z-index: -1;
-        position: relative;
       }
       .node circle.has-children {
         fill: #fff;
-        z-index: -1;
-        position: relative;
       }
       .node text {
         font: 20px sans-serif;
         cursor: pointer;
         fill: #fff;
-        z-index: -1;
-        position: relative;
       }
       .link {
         fill: #fff;
         stroke: #ccc;
         stroke-width: 2px;
-        z-index: -1;
-        position: relative;
       }
       .tooltip {
         position: absolute;
@@ -111,15 +103,11 @@ const Page = () => {
         border-radius: 8px;
         pointer-events: none;
         opacity: 0;
-        z-index: -1;
-        position: relative;
       }
       .svg-wrapper {
         position: relative;
         width: 100%;
         height: 100%;
-        z-index: -1;
-        position: relative;
       }
     `);
 
@@ -223,12 +211,7 @@ const Page = () => {
         .enter()
         .insert("path", "g")
         .attr("class", "link")
-        .attr("d", () =>
-          diagonal(
-            { x: source.x0!, y: source.y0! },
-            { x: source.x0!, y: source.y0! }
-          )
-        );
+        .attr("d", () => diagonal(root, root));
 
       linkEnter
         .merge(link as any)
@@ -240,12 +223,7 @@ const Page = () => {
         .exit()
         .transition()
         .duration(750)
-        .attr("d", () =>
-          diagonal(
-            { x: source.x!, y: source.y! },
-            { x: source.x!, y: source.y! }
-          )
-        )
+        .attr("d", () => diagonal(source, source))
         .remove();
 
       nodes.forEach((d) => {
@@ -254,10 +232,7 @@ const Page = () => {
       });
     }
 
-    function diagonal(
-      s: { x: number; y: number },
-      d: { x: number; y: number }
-    ) {
+    function diagonal(s: ExtendedHierarchyNode, d: ExtendedHierarchyNode) {
       return `M ${s.y} ${s.x} L ${d.y} ${d.x}`;
     }
 
