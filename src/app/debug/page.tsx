@@ -239,7 +239,7 @@ const Page = () => {
     function click(event: any, d: ExtendedHierarchyNode) {
       if (d.children) {
         d._children = d.children;
-        d.children = null;
+        d.children = undefined;
       } else {
         d.children = d._children;
         d._children = undefined;
@@ -257,7 +257,10 @@ const Page = () => {
           e.preventDefault();
           animate(".input", { y: 0 }, { delay: 0.3, duration: 0.2 });
 
-          const input = e.target.dictionary.value.trim();
+          const form = e.target as HTMLFormElement;
+          const input = (
+            form.elements.namedItem("dictionary") as HTMLInputElement
+          ).value.trim();
           if (input === "") {
             console.error("Input cannot be empty");
             return;
